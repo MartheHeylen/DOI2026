@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interventie App</title>
+
+<!-- Styling -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css">
+
+<!-- Excel (SheetJS) -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+
+<!-- PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+body { padding: 20px; }
+.card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; }
+.preview-img { max-width: 100px; margin: 5px; }
+</style>
+</head>
+
+<body>
+
+<h2>📋 Interventieverslag</h2>
+
+<div class="card">
+
+<label>Project</label>
+<input id="project">
+
+<label>Datum</label>
+<input type="date" id="datum">
+
+<label>Type interventie</label>
+<select id="type">
+<option>Herstelling</option>
+<option>Onderhoud</option>
+<option>Inspectie</option>
+<option>Nood</option>
+</select>
+
+<label>Waterdichting</label>
+<select id="water">
+<option>Roofing</option>
+<option>EPDM</option>
+<option>PVC</option>
+<option>Resitrix</option>
+<option>Vloeibaar</option>
+</select>
+
+<label>Uitgevoerde werken</label>
+<textarea id="werken"></textarea>
+
+</div>
+
+<h3>🧱 Materialen</h3>
+<div class="card">
+
+<select id="matType">
+<option>Roofing</option>
+<option>EPDM</option>
+<option>PVC</option>
+<option>Resitrix</option>
+<option>Isolatie</option>
+</select>
+
+<input placeholder="Hoeveelheid" id="matQty">
+
+<select id="matUnit">
+<option>m²</option>
+<option>kg</option>
+<option>stuks</option>
+<option>lm</option>
+</select>
+
+<button onclick="addMateriaal()">Toevoegen</button>
+
+<ul id="materialen"></ul>
+
+</div>
+
+<h3>📷 Foto's</h3>
+<div class="card">
+
+<input type="file" id="fotoInput" accept="image/*">
+<div id="fotoPreview"></div>
+
+</div>
+
+<h3>👤 Aanwezigheid</h3>
+<div class="card">
+
+<input placeholder="Naam" id="persoon">
+
+<label>Start</label>
+<input type="time" id="start">
+
+<label>Einde</label>
+<input type="time" id="einde">
+
+<textarea id="opmerkingen" placeholder="Opmerkingen"></textarea>
+
+</div>
+
+<button onclick="generateData()">Opslaan</button>
+<button onclick="exportExcel()">📊 Excel</button>
+<button onclick="exportPDF()">📄 PDF</button>
+
+<hr>
+
+<div id="rapport"></div>
+
+<script>
+
+let interventie = {
+  materialen: [],
+  fotos: []
+};
+
+// ======================
+// Materiaal toevoegen
+// ======================
+function addMateriaal() {
+
+  let m = {
+    type: document.getElementById("matType").value,
+    qty: document.getElementById("matQty").value,
+    unit: document.getElementById("matUnit").value
+  };
+
+  interventie.materialen.push(m);
+  renderMaterialen();
+}
+
+function renderMaterialen() {
+  let ul = document.getElementById("materialen");
+  ul.innerHTML = "";
+
+  interventie.materialen.forEach((m, i) => {
+    ul.innerHTML += `<li>${m.type} - ${m.qty} ${m.unit}
+    <button onclick="removeMat(${i})">X</button></li>`;
+  });
+}
+
+function removeMat(i) {
+  interventie.materialen.splice(i, 1);
+  renderMaterialen();
+}
+
+// ======================
+// Foto upload
+// ======================
+document.getElementById("fotoInput").addEventListener("change", function(e) {
+
+  let file = e.target.files[0];
+  let reader = new FileReader();
+
+  reader.onload = function() {
+    interventie.fotos.push(reader.result);
+
+    document.getElementById("fotoPreview").innerHTML +=
+      `<img src="${reader.result}" class="preview-img">`;
+  };
+
+  reader.readAsDataURL(file);
+});
+
+// ======================
+// Data verzamelen
+// ======================
+function generateData() {
+
+  interventie.project = document.getElementById("project").value;
+  interventie.datum = document.getElementById("datum").value;
+  interventie.type = document.getElementById("type").value;
+  interventie.water = document.getElementById("water").value;
+  interventie.werken = document.getElementById("werken").value;
+  interventie.persoon = document.getElementById("persoon").value;
+  interventie.start = document.getElementById("start").value;
+  interventie.einde = document.getElementById("einde").value;
+  interventie.opmerkingen = document.getElementById("opmerkingen").value;
+
+  generateRapport();
+}
+
+// ======================
+// Rapport
+// ======================
+function generateRapport() {
+
+  let html = `
+  <h2>Interventieverslag</h2>
+  <p><b>Project:</b> ${interventie.project}</p>
+  <p><b>Datum:</b> ${interventie.datum}</p>
+  <p><b>Type:</b> ${interventie.type}</p>
+  <p><b>Waterdichting:</b> ${interventie.water}</p>
+
+  <h3>Werken</h3>
+  <p>${interventie.werken}</p>
+
+  <h3>Materialen</h3>
+  <ul>${interventie.materialen.map(m => `<li>${m.type} - ${m.qty} ${m.unit}</li>`).join("")}</ul>
+
+  <h3>Uren</h3>
+  <p>${interventie.start} - ${interventie.einde}</p>
+
+  <h3>Persoon</h3>
+  <p>${interventie.persoon}</p>
+
+  <h3>Opmerkingen</h3>
+  <p>${interventie.opmerkingen}</p>
+
+  <h3>Foto’s</h3>
+  ${interventie.fotos.map(f => `<img src="${f}" width="150">`).join("")}
+  `;
+
+  document.getElementById("rapport").innerHTML = html;
+}
+
+// ======================
+// Excel export
+// ======================
+function exportExcel() {
+
+  generateData();
+
+  let data = [
+    ["Project", interventie.project],
+    ["Datum", interventie.datum],
+    ["Type", interventie.type],
+    ["Waterdichting", interventie.water],
+    ["Werken", interventie.werken],
+    ["Persoon", interventie.persoon],
+    ["Start", interventie.start],
+    ["Einde", interventie.einde],
+    ["Opmerkingen", interventie.opmerkingen]
+  ];
+
+  let ws = XLSX.utils.aoa_to_sheet(data);
+  let wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Interventie");
+
+  XLSX.writeFile(wb, "interventie.xlsx");
+}
+
+// ======================
+// PDF export
+// ======================
+function exportPDF() {
+  generateData();
+
+  let element = document.getElementById("rapport");
+  html2pdf().from(element).save("interventie.pdf");
+}
+
+</script>
+
+</body>
+</html>
